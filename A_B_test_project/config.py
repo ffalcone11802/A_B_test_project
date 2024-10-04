@@ -1,3 +1,6 @@
-models = {'A': 'endpointA', 'B': 'endpointB'}
+DATABASE = {}
 
-database = {}
+VARIANTS = {
+    'A': 'Modello A',
+    'B': 'Modello B'
+}

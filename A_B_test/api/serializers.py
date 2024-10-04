@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from A_B_test.models import User, Item, Variant
+from A_B_test.models import User, Item
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -21,8 +21,3 @@ class UserSerializer(serializers.ModelSerializer):
 class ItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = Item
-
-
-class VariantSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Variant

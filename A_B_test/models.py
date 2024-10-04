@@ -1,10 +1,13 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from A_B_test_project.config import VARIANTS
 
 
 class User(AbstractUser):
-    first_name = models.CharField(null=False, blank=False, max_length=20)
-    last_name = models.CharField(null=False, blank=False, max_length=20)
+    first_name = models.CharField(max_length=20)
+    last_name = models.CharField(max_length=20)
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['username']
@@ -13,23 +16,24 @@ class User(AbstractUser):
 
 
 class Item(models.Model):
-    title = models.CharField(null=False, blank=False, max_length=50)
+    title = models.CharField(unique=True, max_length=50)
     description = models.CharField(null=True, max_length=250)
+    score = models.FloatField(default=0)
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.title
 
 
 class ModelAssignment(models.Model):
-    hashed_user_id = models.CharField(null=False, blank=False)
-    recommendations_model = models.CharField(null=True, default=None)
+    user = models.ForeignKey("User", on_delete=models.CASCADE)
+    recommendations_model = models.CharField(max_length=1, choices=VARIANTS, editable=False)
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['hashed_user_id']
+        ordering = ['user_id']
 
-
-class Variant(models.Model):
-    name = models.CharField(null=False, blank=False)
-
-    class Meta:
-        ordering = ['name']
+    def __str__(self):
+        return self.recommendations_model

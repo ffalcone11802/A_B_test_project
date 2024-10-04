@@ -5,13 +5,6 @@ from rest_framework_simplejwt import views as jwt_views
 urlpatterns = [
     path("", views.get_routes),
 
-    # Test routes
-    # activates / deactivates a test by making / clearing users randomization
-    path("test/", views.TestView.as_view()),
-    # variants management
-    path("test/variants/", views.VariantView.as_view()),
-    path("test/variants/<str:pk>", views.VariantUpdateView.as_view()),
-
     path("items/", views.ItemView.as_view()),
     path("items/<str:pk>", views.ItemRetrieveView.as_view()),
 
