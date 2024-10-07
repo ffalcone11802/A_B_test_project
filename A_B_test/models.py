@@ -10,7 +10,7 @@ class User(AbstractUser):
     updated = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['username']
+        ordering = ['id']
 
     REQUIRED_FIELDS = []
 
@@ -33,7 +33,7 @@ class ModelAssignment(models.Model):
     updated = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['user_id']
+        ordering = ['user']
 
     def __str__(self):
         return self.recommendations_model

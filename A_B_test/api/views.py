@@ -1,29 +1,45 @@
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view
 from rest_framework.generics import RetrieveAPIView, ListAPIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
-from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.views import APIView
 from A_B_test.api.serializers import UserSerializer, ItemSerializer
-from A_B_test.api.utils import IsOwnerOrReadOnly
+from A_B_test.api.utils import set_session_data, IsOwnerOrAdmin
 from A_B_test.models import Item, User
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.sessions.models import Session
 
 
 @api_view(['GET'])
 def get_routes(request):
     """
     Function to get a list of all the available APIs
-    (* = authentication credentials or refresh_token required)
+    (* = authentication credentials required)
     """
     routes = [
         'GET /api/',
         'GET /api/items/',
         'GET /api/items/:id',
+        '*GET /api/users/',
         '*GET /api/users/:id',
-        'POST /api/token/',
-        '*POST /api/token/refresh',
-        '*POST /api/logout/'
+        'POST /api/login/',
+        '*GET /api/logout/'
     ]
     return Response(routes)
+
+
+class UserListView(ListAPIView):
+    """
+    View to get the list of all the available users
+    Allowed methods: GET
+    """
+    serializer_class = UserSerializer
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    def get_queryset(self):
+        return User.objects.all()
 
 
 class UserView(RetrieveAPIView):
@@ -32,12 +48,46 @@ class UserView(RetrieveAPIView):
     Allowed methods: GET
     """
     serializer_class = UserSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAuthenticated, IsOwnerOrAdmin]
 
     def get_queryset(self):
         user_id = self.kwargs['pk']
         return User.objects.filter(id=user_id)
+
+
+class LoginView(APIView):
+    """
+    View to handle user login
+    Allowed methods: POST
+    """
+    @staticmethod
+    def post(request):
+        username = request.POST['username']
+        password = request.POST['password']
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            login(request, user)
+            set_session_data(request, user)
+            return Response({'detail': 'Successfully logged in'})
+        else:
+            return Response({'detail': 'No active account found with the given credentials'})
+
+
+class LogoutView(APIView):
+    """
+    View to handle user logout
+    Allowed methods: GET
+    """
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @staticmethod
+    def get(request):
+        logout(request)
+        # Clear user's session data
+        Session.objects.filter(session_key=request.session.session_key).delete()
+        return Response({'detail': 'Successfully logged out'})
 
 
 class ItemView(ListAPIView):

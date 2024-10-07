@@ -1,6 +1,5 @@
 from django.urls import path
 from . import views
-from rest_framework_simplejwt import views as jwt_views
 
 urlpatterns = [
     path("", views.get_routes),
@@ -8,17 +7,12 @@ urlpatterns = [
     path("items/", views.ItemView.as_view()),
     path("items/<str:pk>", views.ItemRetrieveView.as_view()),
 
+    # path("rating/<str:pk>"),
+    # path("recommendations/"),
+
+    path("users/", views.UserListView.as_view()),
     path("users/<str:pk>", views.UserView.as_view()),
 
-    # Login route
-    # returns a refresh_jwt and an access_jwt after a post request with the right credentials
-    path("token/", jwt_views.TokenObtainPairView.as_view()),
-
-    # Refresh token route
-    # returns a new access_jwt after a post request with a valid refresh_jwt
-    path("token/refresh/", jwt_views.TokenRefreshView.as_view()),
-
-    # Logout route
-    # put the provided refresh_jwt in the token black list
-    path("logout/", jwt_views.TokenBlacklistView.as_view()),
+    path("login/", views.LoginView.as_view()),
+    path("logout/", views.LogoutView.as_view())
 ]
