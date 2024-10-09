@@ -12,6 +12,10 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from datetime import timedelta
 from pathlib import Path
 
+from django.conf.global_settings import CSRF_COOKIE_SECURE, CSRF_COOKIE_SAMESITE
+
+from django.conf.global_settings import CSRF_USE_SESSIONS
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -47,11 +51,6 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication',
     )
 }
-
-SESSION_ENGINE = 'django.contrib.sessions.backends.db'
-SESSION_COOKIE_AGE = 86400
-SESSION_COOKIE_SAMESITE = 'Strict'
-SESSION_COOKIE_SECURE = 'True'
 
 AUTH_USER_MODEL = 'A_B_test.User'
 
@@ -139,4 +138,18 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CORS_ALLOW_ALL_ORIGINS = True
+# Session management
+# Cookie settings to allow cross-origin requests
+
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+SESSION_COOKIE_AGE = 86400
+SESSION_COOKIE_SAMESITE = None
+SESSION_COOKIE_SECURE = False
+
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = [
+    'http://127.0.0.1:8000',
+    'http://localhost:8000',
+    'http://192.168.192.128:8000'
+]
