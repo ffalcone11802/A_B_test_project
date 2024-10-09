@@ -9,7 +9,6 @@ from A_B_test.api.utils import set_session_data, IsOwnerOrAdmin, read_from_csv
 from A_B_test.models import Item, User
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.sessions.models import Session
-
 from A_B_test.test.test_utils import send_request_to_model
 
 
