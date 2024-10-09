@@ -5,10 +5,12 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from A_B_test.api.serializers import UserSerializer, ItemSerializer
-from A_B_test.api.utils import set_session_data, IsOwnerOrAdmin
+from A_B_test.api.utils import set_session_data, IsOwnerOrAdmin, read_from_csv
 from A_B_test.models import Item, User
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.sessions.models import Session
+
+from A_B_test.test.test_utils import send_request_to_model
 
 
 @api_view(['GET'])
@@ -111,3 +113,22 @@ class ItemRetrieveView(RetrieveAPIView):
     def get_queryset(self):
         item_id = self.kwargs['pk']
         return Item.objects.filter(id=item_id)
+
+
+class RecommendationsView(ListAPIView):
+    """
+    View to retrieve recommendations produced by models
+    Allowed methods: GET
+    """
+    serializer_class = ItemSerializer
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+    recommendations_data = []
+
+    def get_queryset(self):
+        return Item.objects.filter(id__in=self.recommendations_data)
+
+    def get(self, request, *args, **kwargs):
+        send_request_to_model(request)
+        self.recommendations_data = read_from_csv('recommendations.csv')
+        return self.list(request, *args, **kwargs)

@@ -1,6 +1,31 @@
+import pandas as pd
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import permissions
-from A_B_test.models import ModelAssignment
+from A_B_test.models import ModelAssignment, Item
+
+
+def read_from_csv(csv_file):
+    """
+    Function to read from .csv file and query the db
+    :param csv_file: .csv file containing recommendations from the model
+    :return: list of the recommended items id
+    """
+    items_list = []
+
+    with open(csv_file, 'r') as file:
+        recommendations = pd.read_csv(file)
+
+        for row in recommendations.iterrows():
+            title = row[1]['title']
+            # If items does not already exist...
+            try:
+                item = Item.objects.get(title=title)
+            except ObjectDoesNotExist:
+                pass
+            else:
+                items_list.append(item.id)
+
+    return items_list
 
 
 def set_session_data(request, user):

@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
-from A_B_test_project.config import VARIANTS
+from A_B_test_project.config import Variant
 
 
 class User(AbstractUser):
@@ -27,8 +27,10 @@ class Item(models.Model):
 
 
 class ModelAssignment(models.Model):
+    choices = ((var.name, var.name) for var in Variant)
+
     user = models.ForeignKey("User", on_delete=models.CASCADE)
-    recommendations_model = models.CharField(max_length=1, choices=VARIANTS, editable=False)
+    recommendations_model = models.CharField(max_length=1, choices=choices, editable=False)
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
 

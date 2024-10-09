@@ -8,7 +8,7 @@ urlpatterns = [
     path("items/<str:pk>", views.ItemRetrieveView.as_view()),
 
     # path("rating/<str:pk>"),
-    # path("recommendations/"),
+    path("recommendations/", views.RecommendationsView.as_view()),
 
     path("users/", views.UserListView.as_view()),
     path("users/<str:pk>", views.UserView.as_view()),
