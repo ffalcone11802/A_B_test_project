@@ -1,7 +1,44 @@
 import pandas as pd
+from django.contrib.auth import login, logout
+from django.contrib.sessions.models import Session
 from django.core.exceptions import ObjectDoesNotExist
-from rest_framework import permissions
-from A_B_test.models import ModelAssignment, Item
+from rest_framework import permissions, status
+from rest_framework.response import Response
+from A_B_test.models import VariantAssignment, Item, Variant
+from itertools import cycle
+
+
+class TestUtils:
+    """
+    Class to group all test utilities
+    """
+    def __init__(self):
+        self.__variants = Variant.objects.all()
+
+    def assign_models(self, users_list):
+        """
+        Custom function for users randomization between models
+        """
+        for user, model in zip(users_list, cycle(self.__variants)):
+            # If user does not have any assignments yet...
+            if not VariantAssignment.objects.get(user_id=user.id).exists():
+                # ...create it
+                VariantAssignment.objects.create(
+                    user=user,
+                    recommendations_model=model,
+                )
+
+    def send_request_to_model(self, request):
+        if request.session['model'].exists():
+            variant = filter(lambda m: m.name == request.session['model'], self.__variants)
+            user_id = request.user.id
+            endpoint = variant.endpoint
+
+            # send request to the model endpoint providing user_id
+            # (using websocket to wait asynchronously for the response)
+
+        else:
+            return Response({'detail': 'No model found'})
 
 
 def read_from_csv(csv_file):
@@ -28,39 +65,70 @@ def read_from_csv(csv_file):
     return items_list
 
 
-def set_session_data(request, user):
-    # Set user-specific data in the session
-    # Set user id ...
-    request.session['user_id'] = user.id
-    try:
-        model = ModelAssignment.objects.get(user=user.id)
-    except ObjectDoesNotExist:
-        pass
-    else:
-        # ... and also model assigned, to facilitate views display on the frontend
-        request.session['model'] = model.recommendations_model
-    request.session.save()
-
-
-class IsOwnerOrAdmin(permissions.BasePermission):
+class SessionUtils:
     """
-    Custom permission to only allow owners of an object to view and edit it.
+    Class to group all session management utils
+    """
+    def __init__(self):
+        self._user = None
+
+    def do_login(self, request):
+        if self._user is not None:
+            login(request, self._user)
+            self.set_session_data(request)
+            return Response({'detail': 'Successfully logged in'})
+        else:
+            return Response({'detail': 'No active account found with the given credentials'})
+
+    def do_logout(self, request):
+        self._user = None
+        logout(request)
+        # Clear user's session data
+        request.session.delete()
+        return Response({'detail': 'Successfully logged out'})
+
+    def set_session_data(self, request):
+        # Set user-specific data in the session
+        # Set user id ...
+        request.session['user_id'] = self._user.id
+        try:
+            model = VariantAssignment.objects.get(user=self._user.id)
+        except ObjectDoesNotExist:
+            pass
+        else:
+            # ... and also model assigned, to facilitate views display on the frontend
+            request.session['model'] = model.recommendations_model.name
+        request.session.save()
+
+
+class IsOwner(permissions.BasePermission):
+    """
+    Custom permission to only allow profile owner to view and edit it
     """
     def has_object_permission(self, request, view, obj):
-        # Read and write permissions are only allowed to the owner of the object
+        # Read and write permissions are only allowed to the object owner
         # (only for user profile)
-        return bool(request.user and (request.user.is_staff or obj.id == request.user.id))
+        return bool(request.user and obj.id == request.user.id)
 
 
-class IsOwnerOrReadOnly(permissions.BasePermission):
+class IsManager(permissions.BasePermission):
     """
-    Custom permission to only allow owners of an object to edit it.
+    Custom permission to only allow managers to view and edit test variants
     """
-    def has_object_permission(self, request, view, obj):
+    def has_permission(self, request, view):
+        # Read and write permissions on test variants are only allowed to the managers of the app
+        return bool(request.user.is_manager)
+
+
+class IsManagerOrReadOnly(permissions.BasePermission):
+    """
+    Custom permission to only allow managers to edit items
+    """
+    def has_permission(self, request, view):
         # Read permissions are allowed to any request,
         # so we'll always allow GET, HEAD or OPTIONS requests.
         if request.method in permissions.SAFE_METHODS:
             return True
 
-        # Write permissions are only allowed to the owner of the object.
-        return obj.id == request.user.id
+        # Write permissions on items are only allowed to the managers of the app
+        return bool(request.user.is_manager)

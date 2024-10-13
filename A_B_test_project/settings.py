@@ -53,6 +53,17 @@ REST_FRAMEWORK = {
 }
 
 AUTH_USER_MODEL = 'A_B_test.User'
+"""ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_USERNAME_REQUIRED = True"""
+
+"""REST_AUTH_SERIALIZERS = {
+    "USER_DETAILS_SERIALIZER": "A_B_test.serializers.UserSerializer",
+}
+
+REST_AUTH_REGISTER_SERIALIZERS = {
+    "REGISTER_SERIALIZER": "A_B_test.serializers.RegisterSerializer",
+}"""
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

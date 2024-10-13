@@ -1,13 +1,6 @@
 from enum import Enum
 
-DATABASE = {}
-
 DATASETS_PATH = 'datasets/'
-
-
-class Variant(Enum):
-    A = 'endpointA'
-    B = 'endpointB'
 
 
 class DataSet(Enum):
