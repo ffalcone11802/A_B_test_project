@@ -1,8 +1,7 @@
 import pandas as pd
 from django.contrib.auth import login, logout
-from django.contrib.sessions.models import Session
 from django.core.exceptions import ObjectDoesNotExist
-from rest_framework import permissions, status
+from rest_framework import permissions, status, mixins, generics
 from rest_framework.response import Response
 from A_B_test.models import VariantAssignment, Item, Variant
 from itertools import cycle
@@ -12,21 +11,20 @@ class TestUtils:
     """
     Class to group all test utilities
     """
-    def __init__(self):
-        self.__variants = Variant.objects.all()
+    __variants = Variant.objects.all()
 
     def assign_models(self, users_list):
         """
         Custom function for users randomization between models
         """
-        for user, model in zip(users_list, cycle(self.__variants)):
-            # If user does not have any assignments yet...
-            if not VariantAssignment.objects.get(user_id=user.id).exists():
-                # ...create it
-                VariantAssignment.objects.create(
-                    user=user,
-                    recommendations_model=model,
-                )
+        for user, var in zip(users_list, cycle(self.__variants)):
+            try:
+                VariantAssignment.objects.get(user_id=user.id)
+            except ObjectDoesNotExist:
+                # If user does not have any assignments yet, create it
+                VariantAssignment.objects.create(user=user, variant=var)
+            else:
+                pass
 
     def send_request_to_model(self, request):
         if request.session['model'].exists():
@@ -69,8 +67,7 @@ class SessionUtils:
     """
     Class to group all session management utils
     """
-    def __init__(self):
-        self._user = None
+    _user = None
 
     def do_login(self, request):
         if self._user is not None:
@@ -92,12 +89,12 @@ class SessionUtils:
         # Set user id ...
         request.session['user_id'] = self._user.id
         try:
-            model = VariantAssignment.objects.get(user=self._user.id)
+            asg = VariantAssignment.objects.get(user=self._user.id)
         except ObjectDoesNotExist:
             pass
         else:
-            # ... and also model assigned, to facilitate views display on the frontend
-            request.session['model'] = model.recommendations_model.name
+            # ... and also assigned variant
+            request.session['variant'] = asg.variant.name
         request.session.save()
 
 
@@ -132,3 +129,41 @@ class IsManagerOrReadOnly(permissions.BasePermission):
 
         # Write permissions on items are only allowed to the managers of the app
         return bool(request.user.is_manager)
+
+
+class FieldsControl:
+    """
+    Class to allow user to edit only some object fields
+    """
+    _allowed_fields = []
+    _method = None
+
+    def check_fields(self, request, *args, **kwargs):
+        for k in request.POST.keys():
+            if k not in self._allowed_fields:
+                return Response(
+                    {'detail': f'Only these fields are editable: {self._allowed_fields}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        else:
+            return self._method(request, *args, **kwargs)
+
+
+class CustomRetrieveUpdateDestroyAPIView(mixins.RetrieveModelMixin,
+                                         mixins.UpdateModelMixin,
+                                         mixins.DestroyModelMixin,
+                                         generics.GenericAPIView,
+                                         FieldsControl):
+    """
+    Custom API view to allow controls on editable fields
+    Allow methods: GET, PATCH, DELETE
+    """
+    def get(self, request, *args, **kwargs):
+        return self.retrieve(request, *args, **kwargs)
+
+    def patch(self, request, *args, **kwargs):
+        self._method = self.partial_update
+        return self.check_fields(request, *args, **kwargs)
+
+    def delete(self, request, *args, **kwargs):
+        return self.destroy(request, *args, **kwargs)
