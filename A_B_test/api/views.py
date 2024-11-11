@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from A_B_test.api.serializers import *
 from A_B_test.api.utils import *
-from A_B_test.models import Item, User, Variant, VariantAssignment
+from A_B_test.models import User, VariantAssignment
 from django.contrib.auth import authenticate
 
 
@@ -22,7 +22,7 @@ def get_routes(request):
         'api/users/:id/  *GET *PATCH *DELETE',
         'api/login/  POST',
         'api/logout/  *GET',
-        'api/recommendations/  GET',
+        'NI api/recommendations/  GET',
         'api/items/  *GET **POST',
         'api/items/:id/  *GET **PATCH **DELETE',
         'api/test/assignments/  **GET **POST **DELETE',
@@ -84,62 +84,6 @@ class UserManagementView(CustomRetrieveUpdateDestroyAPIView):
         instance.save()
 
 
-class ItemView(ListCreateAPIView):
-    """
-    View to get all the items available or to create a new one
-    Allowed methods: GET, POST
-    """
-    serializer_class = ItemSerializer
-    authentication_classes = [SessionAuthentication]
-    permission_classes = [IsAuthenticated, IsManagerOrReadOnly]
-
-    def get_queryset(self):
-        return Item.objects.all()
-
-
-class ItemManagementView(CustomRetrieveUpdateDestroyAPIView):
-    """
-    View to manage a specific item
-    Allowed methods: GET, PATCH, DELETE
-    """
-    serializer_class = ItemSerializer
-    authentication_classes = [SessionAuthentication]
-    permission_classes = [IsAuthenticated, IsManagerOrReadOnly]
-    _allowed_fields = ['title', 'description']
-
-    def get_queryset(self):
-        item_id = self.kwargs['pk']
-        return Item.objects.filter(id=item_id)
-
-
-class VariantView(ListCreateAPIView):
-    """
-    View to list all the available test variants or to create a new one
-    Allowed methods: GET, POST
-    """
-    serializer_class = VariantSerializer
-    authentication_classes = [SessionAuthentication]
-    permission_classes = [IsAuthenticated, IsManager]
-
-    def get_queryset(self):
-        return Variant.objects.all()
-
-
-class VariantManagementView(CustomRetrieveUpdateDestroyAPIView):
-    """
-    View to manage a specific test variant
-    Allowed methods: GET, PATCH, DELETE
-    """
-    serializer_class = VariantSerializer
-    authentication_classes = [SessionAuthentication]
-    permission_classes = [IsAuthenticated, IsManager]
-    _allowed_fields = ['name', 'endpoint']
-
-    def get_queryset(self):
-        var_id = self.kwargs['pk']
-        return Variant.objects.filter(id=var_id)
-
-
 class AssignmentsView(ListCreateAPIView, DestroyAPIView, TestUtils):
     """
     View to perform models assignment and to clear it
@@ -178,15 +122,30 @@ class RecommendationsView(ListCreateAPIView, TestUtils):
     View to retrieve recommendations produced by models
     Allowed methods: GET
     """
-    serializer_class = ItemSerializer
+    serializer_class = VariantAssignmentSerializer
     authentication_classes = [SessionAuthentication]
     permission_classes = [IsAuthenticated]
     recommendations_data = []
 
     def get_queryset(self):
-        return Item.objects.filter(id__in=self.recommendations_data)
+        return self.request.GET.get('page')
 
     def get(self, request, *args, **kwargs):
-        self.send_request_to_model(request)
-        self.recommendations_data = read_from_csv('recommendations.csv')
-        return self.list(request, *args, **kwargs)
+        recs = self.get_recommendations(request)
+        print(recs)
+        """token = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJmZDAzMjgxYmY1ZjExNWMxNTM4Mzk3ZTcyM2NhMWFmOCIsIm5iZiI6MTczMDU0NTA3OS44NDQyMTgsInN1YiI6IjY3MjYwMzAzYWM4YjQ4MTllNWYwNTNkMyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.jjeX6EsboH8aObL6ExDI7ssVtGbfsqmSd34xx_jE6uM'
+        language = 'en-US'
+
+        response = requests.get("https://api.themoviedb.org/3/movie/popular",
+                                params={'page': self.get_queryset(),
+                                        'language': language},
+                                headers={'Authorization': f'Bearer {token}'})
+        response = response.json()
+        f = open('datasets/Nuovo Documento di testo.txt', 'a')
+        for item in response['results']:
+            f.write(str(item['id']) + '\n')
+        f.close()"""
+
+        # beautifying and printing the JSON response
+        # return Response(response.json())
+        return Response({'detail': 'Recs written'})

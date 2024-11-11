@@ -7,3 +7,9 @@ class DataSet(Enum):
     ITEMS = DATASETS_PATH + 'items.csv'
     USERS = DATASETS_PATH + 'users.csv'
     RECOMMENDATIONS = DATASETS_PATH + 'recommendations.csv'
+
+
+variants = {
+    'var1': '',
+    'var2': ''
+}

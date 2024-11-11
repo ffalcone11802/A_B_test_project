@@ -13,10 +13,5 @@ urlpatterns = [
     # path("rating/<str:pk>"),
     path("recommendations/", views.RecommendationsView.as_view()),
 
-    path("items/", views.ItemView.as_view()),
-    path("items/<str:pk>", views.ItemManagementView.as_view()),
-
     path("test/assignments/", views.AssignmentsView.as_view()),
-    path("test/variants/", views.VariantView.as_view()),
-    path("test/variants/<str:pk>", views.VariantManagementView.as_view())
 ]

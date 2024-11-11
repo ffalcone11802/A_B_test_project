@@ -1,66 +1,71 @@
+import csv
+import os
 import pandas as pd
 from django.contrib.auth import login, logout
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import permissions, status, mixins, generics
 from rest_framework.response import Response
-from A_B_test.models import VariantAssignment, Item, Variant
-from itertools import cycle
+from A_B_test.models import VariantAssignment
+from A_B_test_project.config import variants
+from manage import update
 
 
 class TestUtils:
     """
     Class to group all test utilities
     """
-    __variants = Variant.objects.all()
 
     def assign_models(self, users_list):
         """
-        Custom function for users randomization between models
+        Custom function for users randomization between variants
         """
-        for user, var in zip(users_list, cycle(self.__variants)):
+        # Initializing variant counters
+        counter = {}
+        for var in variants:
+            counter.update({var: 0})
+
+        # Hashing and sorting users' ids
+        hash_ids = []
+        for user in users_list:
+            hash_ids.append({'hash': hash(user.id), 'id': user.id})
+        sorted_hash_ids = sorted(hash_ids, key=lambda d: d['hash'])
+
+        # Performing assignment
+        for hashed_id, user_id in sorted_hash_ids:
             try:
-                VariantAssignment.objects.get(user_id=user.id)
+                asg = VariantAssignment.objects.get(user_id=user_id)
+                counter[asg.variant] += 1
             except ObjectDoesNotExist:
                 # If user does not have any assignments yet, create it
+                var = min(counter, key=counter.get)
+                user = next((u for u in users_list if u.id == user_id), None)
                 VariantAssignment.objects.create(user=user, variant=var)
+                counter[var] += 1
             else:
                 pass
 
-    def send_request_to_model(self, request):
-        if request.session['model'].exists():
-            variant = filter(lambda m: m.name == request.session['model'], self.__variants)
-            user_id = request.user.id
-            endpoint = variant.endpoint
-
-            # send request to the model endpoint providing user_id
-            # (using websocket to wait asynchronously for the response)
-
+    def get_recommendations(self, request):
+        if 'variant' in request.session:
+            # Getting the assigned model...
+            variant = variants[request.session['variant']]
         else:
-            return Response({'detail': 'No model found'})
+            # ...or the most popular one
+            variant = variants[f'var{len(variants)}']
 
+        recs = self.read_from_tsv(
+            os.path.abspath(os.sep.join([update.output_path, f"{variant.name}.tsv"])),
+            request.user.id
+        )
+        return recs
 
-def read_from_csv(csv_file):
-    """
-    Function to read from .csv file and query the db
-    :param csv_file: .csv file containing recommendations from the model
-    :return: list of the recommended items id
-    """
-    items_list = []
-
-    with open(csv_file, 'r') as file:
-        recommendations = pd.read_csv(file)
-
-        for row in recommendations.iterrows():
-            title = row[1]['title']
-            # If items does not already exist...
-            try:
-                item = Item.objects.get(title=title)
-            except ObjectDoesNotExist:
-                pass
-            else:
-                items_list.append(item.id)
-
-    return items_list
+    def read_from_tsv(self, path, user_id):
+        recs = []
+        with open(path) as file:
+            tsv_file = csv.reader(file, delimiter="\t")
+            for row in tsv_file:
+                if row[0] == str(user_id):
+                    recs.append(row[1])
+        return recs
 
 
 class SessionUtils:
@@ -94,7 +99,7 @@ class SessionUtils:
             pass
         else:
             # ... and also assigned variant
-            request.session['variant'] = asg.variant.name
+            request.session['variant'] = asg.variant
         request.session.save()
 
 

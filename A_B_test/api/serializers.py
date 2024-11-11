@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
-from A_B_test.models import User, Item, Variant, VariantAssignment
+from A_B_test.models import User, VariantAssignment
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -38,18 +38,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         user.last_name = validated_data['last_name']
         user.save()
         return user
-
-
-class ItemSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Item
-        fields = '__all__'
-
-
-class VariantSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Variant
-        fields = '__all__'
 
 
 class VariantAssignmentSerializer(serializers.ModelSerializer):
