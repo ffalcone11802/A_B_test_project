@@ -1,0 +1,24 @@
+experiment:
+  dataset: movies
+  data_config:
+    strategy: fixed
+    train_path: ../data/movies/dataset.tsv
+    validation_path: ../data/movies/validation.tsv
+    test_path: ../data/movies/test.tsv
+  top_k: 10
+  evaluation:
+    simple_metrics: [nDCG]
+  models:
+    ItemKNN:
+      meta:
+        save_recs: True
+      neighbors: 50
+      similarity: cosine
+    UserKNN:
+      meta:
+        save_recs: True
+      neighbors: 5
+      similarity: cosine
+    MostPop:
+      meta:
+        save_recs: True

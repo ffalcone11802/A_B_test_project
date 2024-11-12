@@ -11,10 +11,11 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 from datetime import timedelta
 from pathlib import Path
-
 from django.conf.global_settings import CSRF_COOKIE_SECURE, CSRF_COOKIE_SAMESITE
-
 from django.conf.global_settings import CSRF_USE_SESSIONS
+import environ
+env = environ.Env()
+environ.Env.read_env()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-wy!r8j=vm#@u#k)nzpqxm1&yjj62laz7jr&=8iia!jk@z)2vqc'
+SECRET_KEY = env('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -91,8 +92,12 @@ WSGI_APPLICATION = 'A_B_test_project.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': env('DB_NAME'),
+        'USER': env('DB_USER'),
+        'PASSWORD': env('DB_PASSWORD'),
+        'HOST': env('DB_HOST'),
+        'PORT': env('DB_PORT')
     }
 }
 

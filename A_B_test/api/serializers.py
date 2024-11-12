@@ -1,24 +1,46 @@
 from rest_framework import serializers
-from A_B_test.models import User, Item
+from rest_framework.validators import UniqueValidator
+from A_B_test.models import User, VariantAssignment
 
 
 class UserSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
+    is_active = serializers.BooleanField(write_only=True)
+
     class Meta:
         model = User
-        fields = ['id', 'first_name', 'last_name', 'username', 'email', 'password']
-
-    def to_representation(self, obj):
-        # Get the original representation
-        ret = super(UserSerializer, self).to_representation(obj)
-
-        # Remove email and password before retrieving it
-        ret.pop('email')
-        ret.pop('password')
-
-        return ret
+        exclude = ['is_staff', 'is_superuser', 'user_permissions', 'groups']
 
 
-class ItemSerializer(serializers.ModelSerializer):
+class RegisterSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(
+        required=True,
+        validators=[UniqueValidator(queryset=User.objects.all())]
+    )
+
+    password = serializers.CharField(write_only=True, required=True)
+
     class Meta:
-        model = Item
+        model = User
+        exclude = ['is_staff', 'is_superuser', 'is_active', 'user_permissions', 'groups']
+        extra_kwargs = {
+            'first_name': {'required': True},
+            'last_name': {'required': True}
+        }
+
+    def create(self, validated_data):
+        user = User.objects.create_user(
+            validated_data['username'],
+            validated_data['email'],
+            validated_data['password']
+        )
+        user.first_name = validated_data['first_name']
+        user.last_name = validated_data['last_name']
+        user.save()
+        return user
+
+
+class VariantAssignmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VariantAssignment
         fields = '__all__'

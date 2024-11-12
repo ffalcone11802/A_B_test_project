@@ -1,15 +1,12 @@
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view
-from rest_framework.generics import RetrieveAPIView, ListAPIView
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from rest_framework.response import Response
+from rest_framework.generics import ListCreateAPIView, ListAPIView, CreateAPIView, DestroyAPIView
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
-from A_B_test.api.serializers import UserSerializer, ItemSerializer
-from A_B_test.api.utils import set_session_data, IsOwnerOrAdmin, read_from_csv
-from A_B_test.models import Item, User
-from django.contrib.auth import authenticate, login, logout
-from django.contrib.sessions.models import Session
-from A_B_test.test.test_utils import send_request_to_model
+from A_B_test.api.serializers import *
+from A_B_test.api.utils import *
+from A_B_test.models import User, VariantAssignment
+from django.contrib.auth import authenticate
 
 
 @api_view(['GET'])
@@ -17,65 +14,38 @@ def get_routes(request):
     """
     Function to get a list of all the available APIs
     (* = authentication credentials required)
+    (** = manager role required)
     """
     routes = [
-        'GET /api/',
-        'GET /api/items/',
-        'GET /api/items/:id',
-        '*GET /api/users/',
-        '*GET /api/users/:id',
-        'POST /api/login/',
-        '*GET /api/logout/'
+        'api/  GET',
+        'api/users/  POST'
+        'api/users/:id/  *GET *PATCH *DELETE',
+        'api/login/  POST',
+        'api/logout/  *GET',
+        'NI api/recommendations/  GET',
+        'api/items/  *GET **POST',
+        'api/items/:id/  *GET **PATCH **DELETE',
+        'api/test/assignments/  **GET **POST **DELETE',
+        'api/test/variants/  **GET **POST',
+        'api/test/variants/:id/  **GET **PATCH **DELETE'
     ]
     return Response(routes)
 
 
-class UserListView(ListAPIView):
-    """
-    View to get the list of all the available users
-    Allowed methods: GET
-    """
-    serializer_class = UserSerializer
-    authentication_classes = [SessionAuthentication]
-    permission_classes = [IsAuthenticated, IsAdminUser]
-
-    def get_queryset(self):
-        return User.objects.all()
-
-
-class UserView(RetrieveAPIView):
-    """
-    View to get user information
-    Allowed methods: GET
-    """
-    serializer_class = UserSerializer
-    authentication_classes = [SessionAuthentication]
-    permission_classes = [IsAuthenticated, IsOwnerOrAdmin]
-
-    def get_queryset(self):
-        user_id = self.kwargs['pk']
-        return User.objects.filter(id=user_id)
-
-
-class LoginView(APIView):
+class LoginView(APIView, SessionUtils):
     """
     View to handle user login
     Allowed methods: POST
     """
-    @staticmethod
-    def post(request):
+
+    def post(self, request):
         username = request.POST['username']
         password = request.POST['password']
-        user = authenticate(request, username=username, password=password)
-        if user is not None:
-            login(request, user)
-            set_session_data(request, user)
-            return Response({'detail': 'Successfully logged in'})
-        else:
-            return Response({'detail': 'No active account found with the given credentials'})
+        self._user = authenticate(request, username=username, password=password)
+        return self.do_login(request)
 
 
-class LogoutView(APIView):
+class LogoutView(APIView, SessionUtils):
     """
     View to handle user logout
     Allowed methods: GET
@@ -83,51 +53,99 @@ class LogoutView(APIView):
     authentication_classes = [SessionAuthentication]
     permission_classes = [IsAuthenticated]
 
-    @staticmethod
-    def get(request):
-        logout(request)
-        # Clear user's session data
-        Session.objects.filter(session_key=request.session.session_key).delete()
-        return Response({'detail': 'Successfully logged out'})
+    def get(self, request):
+        return self.do_logout(request)
 
 
-class ItemView(ListAPIView):
+class UserView(CreateAPIView):
     """
-    View to get all the items available
-    Allowed methods: GET
+    View to create a new user profile
+    Allowed methods: POST
     """
-    serializer_class = ItemSerializer
+    serializer_class = RegisterSerializer
+
+
+class UserManagementView(CustomRetrieveUpdateDestroyAPIView):
+    """
+    View to manage a specific user profile
+    Allowed methods: GET, PATCH, DELETE
+    """
+    serializer_class = UserSerializer
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAuthenticated, IsOwner]
+    _allowed_fields = ['first_name', 'last_name', 'password', 'is_active']
 
     def get_queryset(self):
-        return Item.objects.all()
+        user_id = self.kwargs['pk']
+        return User.objects.filter(id=user_id)
+
+    def perform_destroy(self, instance):
+        instance.is_active = False
+        instance.save()
 
 
-class ItemRetrieveView(RetrieveAPIView):
+class AssignmentsView(ListCreateAPIView, DestroyAPIView, TestUtils):
     """
-    View to retrieve a specific item
-    Allowed methods: GET
+    View to perform models assignment and to clear it
+    Allowed methods: GET, POST, DELETE
     """
-    serializer_class = ItemSerializer
+    serializer_class = VariantAssignmentSerializer
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAuthenticated, IsManager]
 
     def get_queryset(self):
-        item_id = self.kwargs['pk']
-        return Item.objects.filter(id=item_id)
+        return VariantAssignment.objects.all()
+
+    def create(self, request, *args, **kwargs):
+        users_list = User.objects.filter(is_superuser=False, is_staff=False, is_manager=False, is_active=True)
+        if len(users_list):
+            self.assign_models(users_list)
+            return Response(
+                {'detail': 'Assignment successfully performed or updated'},
+                status=status.HTTP_201_CREATED
+            )
+        else:
+            return Response({'detail': 'No users found'}, status=status.HTTP_200_OK)
+
+    def destroy(self, request, *args, **kwargs):
+        assignments = VariantAssignment.objects.all()
+        for asg in assignments:
+            self.perform_destroy(asg)
+        return Response(
+            {'detail': 'Assignment successfully cleared'},
+            status=status.HTTP_204_NO_CONTENT
+        )
 
 
-class RecommendationsView(ListAPIView):
+class RecommendationsView(ListCreateAPIView, TestUtils):
     """
     View to retrieve recommendations produced by models
     Allowed methods: GET
     """
-    serializer_class = ItemSerializer
+    serializer_class = VariantAssignmentSerializer
     authentication_classes = [SessionAuthentication]
     permission_classes = [IsAuthenticated]
     recommendations_data = []
 
     def get_queryset(self):
-        return Item.objects.filter(id__in=self.recommendations_data)
+        return self.request.GET.get('page')
 
     def get(self, request, *args, **kwargs):
-        send_request_to_model(request)
-        self.recommendations_data = read_from_csv('recommendations.csv')
-        return self.list(request, *args, **kwargs)
+        recs = self.get_recommendations(request)
+        print(recs)
+        """token = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJmZDAzMjgxYmY1ZjExNWMxNTM4Mzk3ZTcyM2NhMWFmOCIsIm5iZiI6MTczMDU0NTA3OS44NDQyMTgsInN1YiI6IjY3MjYwMzAzYWM4YjQ4MTllNWYwNTNkMyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.jjeX6EsboH8aObL6ExDI7ssVtGbfsqmSd34xx_jE6uM'
+        language = 'en-US'
+
+        response = requests.get("https://api.themoviedb.org/3/movie/popular",
+                                params={'page': self.get_queryset(),
+                                        'language': language},
+                                headers={'Authorization': f'Bearer {token}'})
+        response = response.json()
+        f = open('datasets/Nuovo Documento di testo.txt', 'a')
+        for item in response['results']:
+            f.write(str(item['id']) + '\n')
+        f.close()"""
+
+        # beautifying and printing the JSON response
+        # return Response(response.json())
+        return Response({'detail': 'Recs written'})

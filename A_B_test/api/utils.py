@@ -1,66 +1,174 @@
+import csv
+import os
 import pandas as pd
+from django.contrib.auth import login, logout
 from django.core.exceptions import ObjectDoesNotExist
-from rest_framework import permissions
-from A_B_test.models import ModelAssignment, Item
+from rest_framework import permissions, status, mixins, generics
+from rest_framework.response import Response
+from A_B_test.models import VariantAssignment
+from A_B_test_project.config import variants
+from manage import update
 
 
-def read_from_csv(csv_file):
+class TestUtils:
     """
-    Function to read from .csv file and query the db
-    :param csv_file: .csv file containing recommendations from the model
-    :return: list of the recommended items id
+    Class to group all test utilities
     """
-    items_list = []
 
-    with open(csv_file, 'r') as file:
-        recommendations = pd.read_csv(file)
+    def assign_models(self, users_list):
+        """
+        Custom function for users randomization between variants
+        """
+        # Initializing variant counters
+        counter = {}
+        for var in variants:
+            counter.update({var: 0})
 
-        for row in recommendations.iterrows():
-            title = row[1]['title']
-            # If items does not already exist...
+        # Hashing and sorting users' ids
+        hash_ids = []
+        for user in users_list:
+            hash_ids.append({'hash': hash(user.id), 'id': user.id})
+        sorted_hash_ids = sorted(hash_ids, key=lambda d: d['hash'])
+
+        # Performing assignment
+        for hashed_id, user_id in sorted_hash_ids:
             try:
-                item = Item.objects.get(title=title)
+                asg = VariantAssignment.objects.get(user_id=user_id)
+                counter[asg.variant] += 1
             except ObjectDoesNotExist:
-                pass
+                # If user does not have any assignments yet, create it
+                var = min(counter, key=counter.get)
+                user = next((u for u in users_list if u.id == user_id), None)
+                VariantAssignment.objects.create(user=user, variant=var)
+                counter[var] += 1
             else:
-                items_list.append(item.id)
+                pass
 
-    return items_list
+    def get_recommendations(self, request):
+        if 'variant' in request.session:
+            # Getting the assigned model...
+            variant = variants[request.session['variant']]
+        else:
+            # ...or the most popular one
+            variant = variants[f'var{len(variants)}']
+
+        recs = self.read_from_tsv(
+            os.path.abspath(os.sep.join([update.output_path, f"{variant.name}.tsv"])),
+            request.user.id
+        )
+        return recs
+
+    def read_from_tsv(self, path, user_id):
+        recs = []
+        with open(path) as file:
+            tsv_file = csv.reader(file, delimiter="\t")
+            for row in tsv_file:
+                if row[0] == str(user_id):
+                    recs.append(row[1])
+        return recs
 
 
-def set_session_data(request, user):
-    # Set user-specific data in the session
-    # Set user id ...
-    request.session['user_id'] = user.id
-    try:
-        model = ModelAssignment.objects.get(user=user.id)
-    except ObjectDoesNotExist:
-        pass
-    else:
-        # ... and also model assigned, to facilitate views display on the frontend
-        request.session['model'] = model.recommendations_model
-    request.session.save()
-
-
-class IsOwnerOrAdmin(permissions.BasePermission):
+class SessionUtils:
     """
-    Custom permission to only allow owners of an object to view and edit it.
+    Class to group all session management utils
+    """
+    _user = None
+
+    def do_login(self, request):
+        if self._user is not None:
+            login(request, self._user)
+            self.set_session_data(request)
+            return Response({'detail': 'Successfully logged in'})
+        else:
+            return Response({'detail': 'No active account found with the given credentials'})
+
+    def do_logout(self, request):
+        self._user = None
+        logout(request)
+        # Clear user's session data
+        request.session.delete()
+        return Response({'detail': 'Successfully logged out'})
+
+    def set_session_data(self, request):
+        # Set user-specific data in the session
+        # Set user id ...
+        request.session['user_id'] = self._user.id
+        try:
+            asg = VariantAssignment.objects.get(user=self._user.id)
+        except ObjectDoesNotExist:
+            pass
+        else:
+            # ... and also assigned variant
+            request.session['variant'] = asg.variant
+        request.session.save()
+
+
+class IsOwner(permissions.BasePermission):
+    """
+    Custom permission to only allow profile owner to view and edit it
     """
     def has_object_permission(self, request, view, obj):
-        # Read and write permissions are only allowed to the owner of the object
+        # Read and write permissions are only allowed to the object owner
         # (only for user profile)
-        return bool(request.user and (request.user.is_staff or obj.id == request.user.id))
+        return bool(request.user and obj.id == request.user.id)
 
 
-class IsOwnerOrReadOnly(permissions.BasePermission):
+class IsManager(permissions.BasePermission):
     """
-    Custom permission to only allow owners of an object to edit it.
+    Custom permission to only allow managers to view and edit test variants
     """
-    def has_object_permission(self, request, view, obj):
+    def has_permission(self, request, view):
+        # Read and write permissions on test variants are only allowed to the managers of the app
+        return bool(request.user.is_manager)
+
+
+class IsManagerOrReadOnly(permissions.BasePermission):
+    """
+    Custom permission to only allow managers to edit items
+    """
+    def has_permission(self, request, view):
         # Read permissions are allowed to any request,
         # so we'll always allow GET, HEAD or OPTIONS requests.
         if request.method in permissions.SAFE_METHODS:
             return True
 
-        # Write permissions are only allowed to the owner of the object.
-        return obj.id == request.user.id
+        # Write permissions on items are only allowed to the managers of the app
+        return bool(request.user.is_manager)
+
+
+class FieldsControl:
+    """
+    Class to allow user to edit only some object fields
+    """
+    _allowed_fields = []
+    _method = None
+
+    def check_fields(self, request, *args, **kwargs):
+        for k in request.POST.keys():
+            if k not in self._allowed_fields:
+                return Response(
+                    {'detail': f'Only these fields are editable: {self._allowed_fields}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        else:
+            return self._method(request, *args, **kwargs)
+
+
+class CustomRetrieveUpdateDestroyAPIView(mixins.RetrieveModelMixin,
+                                         mixins.UpdateModelMixin,
+                                         mixins.DestroyModelMixin,
+                                         generics.GenericAPIView,
+                                         FieldsControl):
+    """
+    Custom API view to allow controls on editable fields
+    Allow methods: GET, PATCH, DELETE
+    """
+    def get(self, request, *args, **kwargs):
+        return self.retrieve(request, *args, **kwargs)
+
+    def patch(self, request, *args, **kwargs):
+        self._method = self.partial_update
+        return self.check_fields(request, *args, **kwargs)
+
+    def delete(self, request, *args, **kwargs):
+        return self.destroy(request, *args, **kwargs)
