@@ -7,11 +7,11 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'A_B_test_project.settings')
 django.setup()
 
-from update_recs import UpdateRecs
-import environ
-env = environ.Env()
-environ.Env.read_env()
-update = UpdateRecs(config_path=env('CONFIG_PATH'))
+from A_B_test.recs_manager import RecsManager
+import A_B_test.config as config
+
+# Recommendations and test management
+config.recs_manager = RecsManager(config_path='config_files/A_B_test_config.yml')
 
 def main():
     """Run administrative tasks."""
@@ -25,7 +25,7 @@ def main():
         ) from exc
 
     # Models initial update
-    update.update_recs()
+    config.recs_manager.update_recs()
 
     execute_from_command_line(sys.argv)
 

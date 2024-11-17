@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from A_B_test.api.serializers import *
 from A_B_test.api.utils import *
+from A_B_test.test_utils import TestUtils
 from A_B_test.models import User, VariantAssignment
 from django.contrib.auth import authenticate
 
@@ -135,7 +136,7 @@ class RecommendationsView(ListCreateAPIView, TestUtils):
         print(recs)
         """token = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJmZDAzMjgxYmY1ZjExNWMxNTM4Mzk3ZTcyM2NhMWFmOCIsIm5iZiI6MTczMDU0NTA3OS44NDQyMTgsInN1YiI6IjY3MjYwMzAzYWM4YjQ4MTllNWYwNTNkMyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.jjeX6EsboH8aObL6ExDI7ssVtGbfsqmSd34xx_jE6uM'
         language = 'en-US'
-
+        
         response = requests.get("https://api.themoviedb.org/3/movie/popular",
                                 params={'page': self.get_queryset(),
                                         'language': language},
@@ -149,3 +150,28 @@ class RecommendationsView(ListCreateAPIView, TestUtils):
         # beautifying and printing the JSON response
         # return Response(response.json())
         return Response({'detail': 'Recs written'})
+
+
+class RatingView(CreateAPIView, TestUtils):
+    """
+    View to rate recommendations produced by models
+    Allowed methods: POST
+    """
+    serializer_class = RatingSerializer
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data, many=True)
+        serializer.is_valid(raise_exception=True)
+
+        data = self.update_ratings(request, serializer.data)
+
+        serialized = self.get_serializer(data, many=True)
+        headers = self.get_success_headers(serializer.data)
+
+        return Response(
+            serialized.data,
+            status=status.HTTP_201_CREATED,
+            headers=headers
+        )

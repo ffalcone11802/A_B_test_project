@@ -10,7 +10,7 @@ urlpatterns = [
     path("login/", views.LoginView.as_view()),
     path("logout/", views.LogoutView.as_view()),
 
-    # path("rating/<str:pk>"),
+    path("rating/", views.RatingView.as_view()),
     path("recommendations/", views.RecommendationsView.as_view()),
 
     path("test/assignments/", views.AssignmentsView.as_view()),

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
-from A_B_test.models import User, VariantAssignment
+from A_B_test.models import *
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -44,3 +44,9 @@ class VariantAssignmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = VariantAssignment
         fields = '__all__'
+
+
+class RatingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Rating
+        exclude = ['user']

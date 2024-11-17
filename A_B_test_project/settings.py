@@ -30,7 +30,7 @@ SECRET_KEY = env('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', '192.168.192.128']
+ALLOWED_HOSTS = ['127.0.0.1']
 
 
 # Application definition
@@ -155,6 +155,5 @@ CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:8000',
-    'http://localhost:8000',
-    'http://192.168.192.128:8000'
+    'http://localhost:8000'
 ]

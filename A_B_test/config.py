@@ -1,0 +1,2 @@
+recs_manager = {}
+variants = {}
