@@ -1,7 +1,7 @@
 import csv
 import os
 import random
-from A_B_test.config import *
+from A_B_test.test_config import *
 from django.core.exceptions import ObjectDoesNotExist
 from A_B_test.models import VariantAssignment, Rating
 

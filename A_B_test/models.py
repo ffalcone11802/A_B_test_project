@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
-from A_B_test.config import variants
+from A_B_test.test_config import variants
 from django.core.validators import MaxValueValidator, MinValueValidator
 
 

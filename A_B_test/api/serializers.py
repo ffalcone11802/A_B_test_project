@@ -50,3 +50,17 @@ class RatingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rating
         exclude = ['user']
+
+
+class ItemSerializer(serializers.Serializer):
+    adult = serializers.BooleanField(read_only=True)
+    backdrop_path = serializers.CharField(read_only=True)
+    genres = serializers.ListField(read_only=True)
+    id = serializers.CharField(read_only=True)
+    original_language = serializers.CharField(read_only=True)
+    original_title = serializers.CharField(read_only=True)
+    overview = serializers.CharField(read_only=True)
+    poster_path = serializers.CharField(read_only=True)
+    release_date = serializers.DateField(read_only=True)
+    title = serializers.CharField(read_only=True)
+    video = serializers.BooleanField(read_only=True)

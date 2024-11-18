@@ -44,7 +44,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'A_B_test',
     'rest_framework',
-    'corsheaders'
+    'corsheaders',
+    'django_apscheduler'
 ]
 
 REST_FRAMEWORK = {

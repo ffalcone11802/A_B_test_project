@@ -2,8 +2,8 @@ import importlib
 import os
 from A_B_test.models import Rating
 from elliot.namespace.namespace_model_builder import NameSpaceBuilder
-from A_B_test.config import variants
 from elliot.utils.write import store_recommendation
+import A_B_test.test_config as config
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -48,7 +48,7 @@ class RecsManager:
                     model = model_class(data=data_obj, config=self.__base.base_namespace, params=model_base)
                     model.train()
                     self.__compute_recommendations(model)
-                    variants.update({f'var{count}': model})
+                    config.variants.update({f'var{count}': model})
 
     def __compute_recommendations(self, model):
         recs = model.get_recommendations(self.k)

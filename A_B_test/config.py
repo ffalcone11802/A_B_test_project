@@ -1,2 +1,0 @@
-recs_manager = {}
-variants = {}

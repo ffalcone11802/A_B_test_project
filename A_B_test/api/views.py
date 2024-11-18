@@ -4,6 +4,7 @@ from rest_framework.generics import ListCreateAPIView, ListAPIView, CreateAPIVie
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from A_B_test.api.serializers import *
+from A_B_test.api.tmdb_utils import TMDBUtils
 from A_B_test.api.utils import *
 from A_B_test.test_utils import TestUtils
 from A_B_test.models import User, VariantAssignment
@@ -23,12 +24,8 @@ def get_routes(request):
         'api/users/:id/  *GET *PATCH *DELETE',
         'api/login/  POST',
         'api/logout/  *GET',
-        'NI api/recommendations/  GET',
-        'api/items/  *GET **POST',
-        'api/items/:id/  *GET **PATCH **DELETE',
+        'api/recommendations/  GET',
         'api/test/assignments/  **GET **POST **DELETE',
-        'api/test/variants/  **GET **POST',
-        'api/test/variants/:id/  **GET **PATCH **DELETE'
     ]
     return Response(routes)
 
@@ -118,38 +115,23 @@ class AssignmentsView(ListCreateAPIView, DestroyAPIView, TestUtils):
         )
 
 
-class RecommendationsView(ListCreateAPIView, TestUtils):
+class RecommendationsView(ListAPIView, TestUtils, TMDBUtils):
     """
     View to retrieve recommendations produced by models
     Allowed methods: GET
     """
-    serializer_class = VariantAssignmentSerializer
+    serializer_class = ItemSerializer
     authentication_classes = [SessionAuthentication]
     permission_classes = [IsAuthenticated]
-    recommendations_data = []
 
-    def get_queryset(self):
-        return self.request.GET.get('page')
-
-    def get(self, request, *args, **kwargs):
+    def list(self, request, *args, **kwargs):
         recs = self.get_recommendations(request)
-        print(recs)
-        """token = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJmZDAzMjgxYmY1ZjExNWMxNTM4Mzk3ZTcyM2NhMWFmOCIsIm5iZiI6MTczMDU0NTA3OS44NDQyMTgsInN1YiI6IjY3MjYwMzAzYWM4YjQ4MTllNWYwNTNkMyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.jjeX6EsboH8aObL6ExDI7ssVtGbfsqmSd34xx_jE6uM'
-        language = 'en-US'
-        
-        response = requests.get("https://api.themoviedb.org/3/movie/popular",
-                                params={'page': self.get_queryset(),
-                                        'language': language},
-                                headers={'Authorization': f'Bearer {token}'})
-        response = response.json()
-        f = open('datasets/Nuovo Documento di testo.txt', 'a')
-        for item in response['results']:
-            f.write(str(item['id']) + '\n')
-        f.close()"""
 
-        # beautifying and printing the JSON response
-        # return Response(response.json())
-        return Response({'detail': 'Recs written'})
+        # Populating item ids with some more information
+        recommendations = self.populate(recs)
+
+        serializer = self.get_serializer(recommendations, many=True)
+        return Response(serializer.data)
 
 
 class RatingView(CreateAPIView, TestUtils):

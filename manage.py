@@ -5,13 +5,15 @@ import sys
 import django
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'A_B_test_project.settings')
+os.environ.setdefault('TF_ENABLE_ONEDNN_OPTS', '0')
 django.setup()
 
 from A_B_test.recs_manager import RecsManager
-import A_B_test.config as config
+import A_B_test.test_config as config
 
 # Recommendations and test management
-config.recs_manager = RecsManager(config_path='config_files/A_B_test_config.yml')
+config.recs_manager = RecsManager(config_path=config.config_path)
+
 
 def main():
     """Run administrative tasks."""
@@ -24,7 +26,7 @@ def main():
             "forget to activate a virtual environment?"
         ) from exc
 
-    # Models initial update
+    # Models initial training
     config.recs_manager.update_recs()
 
     execute_from_command_line(sys.argv)
