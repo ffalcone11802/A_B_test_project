@@ -8,7 +8,7 @@ class Command(BaseCommand):
     Custom command to import users into db from .csv file
     """
     def handle(self, *args, **kwargs):
-        csv_file = 'datasets/users.csv'
+        csv_file = 'data/users.csv'
 
         with open(csv_file, 'r') as file:
             users = pd.read_csv(file)
