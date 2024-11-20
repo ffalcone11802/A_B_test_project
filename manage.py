@@ -8,15 +8,15 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'A_B_test_project.settings')
 os.environ.setdefault('TF_ENABLE_ONEDNN_OPTS', '0')
 django.setup()
 
-from A_B_test.recs_manager import RecsManager
-import A_B_test.test_config as config
-
-# Recommendations and test management
-config.recs_manager = RecsManager(config_path=config.config_path)
-
 
 def main():
-    """Run administrative tasks."""
+    # Models initial training
+    if len(sys.argv) > 1 and sys.argv[1] == 'runserver':
+        from A_B_test.recs_manager import RecsManager
+        import A_B_test.test_config as config
+        config.recs_manager = RecsManager(config_path=config.config_path)
+        config.recs_manager.update_recs()
+
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
@@ -25,9 +25,6 @@ def main():
             "available on your PYTHONPATH environment variable? Did you "
             "forget to activate a virtual environment?"
         ) from exc
-
-    # Models initial training
-    config.recs_manager.update_recs()
 
     execute_from_command_line(sys.argv)
 
